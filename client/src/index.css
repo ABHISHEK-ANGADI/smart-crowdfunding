@@ -1,0 +1,26 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --toast-bg: #ffffff;
+    --toast-text: #0f172a;
+    --toast-border: #e2e8f0;
+  }
+
+  .dark {
+    --toast-bg: #0f172a;
+    --toast-text: #f8fafc;
+    --toast-border: #475569;
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased;
+  }
+}
+
+@layer utilities {
+  .card-shadow {
+    box-shadow: 0 1px 3px 0 rgba(0,0,0,0.06), 0 1px 2px -1px rgba(0,0,0,0.04);
+  }
+}

@@ -1,0 +1,305 @@
+import { useState, useEffect, useCallback } from "react";
+import { ethers } from "ethers";
+import { CONTRACT_ADDRESS, CONTRACT_ABI, SEPOLIA_CHAIN_ID } from "../utils/constants";
+import toast from "react-hot-toast";
+
+export const useContract = () => {
+  const [provider, setProvider] = useState(null);
+  const [signer, setSigner] = useState(null);
+  const [contract, setContract] = useState(null);
+  const [readContract, setReadContract] = useState(null); // Contract instance for read-only calls
+  const [account, setAccount] = useState(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [campaigns, setCampaigns] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [networkError, setNetworkError] = useState(null);
+
+  // Initialize provider
+  useEffect(() => {
+    if (window.ethereum) {
+      const web3Provider = new ethers.BrowserProvider(window.ethereum);
+      setProvider(web3Provider);
+    } else {
+      toast.error("MetaMask not installed");
+    }
+  }, []);
+
+  // Connect wallet
+  const connectWallet = useCallback(async () => {
+    if (!provider) {
+      toast.error("Please install MetaMask");
+      return;
+    }
+    setIsConnecting(true);
+    setNetworkError(null);
+    try {
+      // Check network
+      const network = await provider.getNetwork();
+      console.log(`📡 Current network: ${network.name} (chainId: ${network.chainId})`);
+      
+      // Convert both to BigInt for comparison (chainId might be BigInt or number)
+      const currentChainId = BigInt(network.chainId);
+      const expectedChainId = BigInt(SEPOLIA_CHAIN_ID);
+      
+      if (currentChainId !== expectedChainId) {
+        const msg = `❌ Wrong network! Please switch to Sepolia (chainId 11155111). Currently on ${network.name} (${network.chainId})`;
+        console.error(msg);
+        setNetworkError(msg);
+        toast.error(msg);
+        setIsConnecting(false);
+        return;
+      }
+      
+      // Network is correct, clear any previous error
+      setNetworkError(null);
+
+      // Request accounts
+      const accounts = await provider.send("eth_requestAccounts", []);
+      const signerInstance = await provider.getSigner();
+      setSigner(signerInstance);
+      setAccount(accounts[0]);
+
+      // Create contract instances
+      const writeContract = new ethers.Contract(
+        CONTRACT_ADDRESS,
+        CONTRACT_ABI,
+        signerInstance
+      );
+      
+      // Also create read-only contract with provider
+      const readOnlyContract = new ethers.Contract(
+        CONTRACT_ADDRESS,
+        CONTRACT_ABI,
+        provider
+      );
+      
+      setContract(writeContract);
+      setReadContract(readOnlyContract);
+      
+      console.log(`✅ Connected: ${accounts[0]} on Sepolia`);
+      console.log(`📄 Contract address: ${CONTRACT_ADDRESS}`);
+      
+      toast.success("Wallet connected to Sepolia!");
+      localStorage.setItem("walletConnected", "true");
+    } catch (error) {
+      console.error("Wallet connection error:", error);
+      toast.error(error.message || "Failed to connect wallet");
+    } finally {
+      setIsConnecting(false);
+    }
+  }, [provider]);
+
+  // Auto-connect
+  useEffect(() => {
+    if (provider && localStorage.getItem("walletConnected") === "true") {
+      connectWallet();
+    }
+  }, [provider, connectWallet]);
+
+  // Fetch campaigns
+  const fetchCampaigns = useCallback(async () => {
+    // Use read-only contract for read operations, fallback to write contract
+    const contractToUse = readContract || contract;
+    
+    if (!contractToUse) {
+      console.warn("⚠️  fetchCampaigns: No contract instance available");
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      console.log("🔄 Fetching campaign count...");
+      console.log(`   Contract: ${CONTRACT_ADDRESS}`);
+      
+      let count;
+      let countMethod = "unknown";
+      
+      // Try getCampaignCount() first
+      try {
+        console.log("   Trying getCampaignCount()...");
+        count = await contractToUse.getCampaignCount();
+        countMethod = "getCampaignCount()";
+        console.log(`✅ Got count via ${countMethod}: ${count.toString()}`);
+      } catch (getCampaignCountError) {
+        console.warn(`⚠️  getCampaignCount() failed:`, getCampaignCountError.message);
+        
+        // Fallback to campaignCount public variable
+        try {
+          console.log("   Trying campaignCount()...");
+          count = await contractToUse.campaignCount();
+          countMethod = "campaignCount()";
+          console.log(`✅ Got count via ${countMethod}: ${count.toString()}`);
+        } catch (campaignCountError) {
+          console.error(`❌ Both methods failed:`);
+          console.error(`   getCampaignCount: ${getCampaignCountError.message}`);
+          console.error(`   campaignCount: ${campaignCountError.message}`);
+          throw new Error(
+            `Could not fetch campaign count. getCampaignCount: ${getCampaignCountError.message}. ` +
+            `campaignCount: ${campaignCountError.message}`
+          );
+        }
+      }
+      
+      const countNum = Number(count);
+      console.log(`📊 Total campaigns: ${countNum}`);
+      
+      // Fetch individual campaigns
+      const campaignsArray = [];
+      for (let i = 0; i < countNum; i++) {
+        try {
+          const campaign = await contractToUse.campaigns(i);
+          campaignsArray.push({
+            id: i,
+            creator: campaign.creator,
+            title: campaign.title,
+            goal: campaign.goal.toString(),
+            deadline: Number(campaign.deadline),
+            totalRaised: campaign.totalRaised.toString(),
+            claimed: campaign.claimed,
+          });
+          console.log(`   ✓ Campaign ${i} loaded`);
+        } catch (campaignError) {
+          console.error(`❌ Failed to load campaign ${i}:`, campaignError.message);
+        }
+      }
+      
+      setCampaigns(campaignsArray);
+      console.log(`✅ Loaded ${campaignsArray.length} campaigns successfully`);
+    } catch (error) {
+      console.error("❌ Fetch campaigns error:", error);
+      console.error("   Error code:", error.code);
+      console.error("   Error info:", error.info || "N/A");
+      
+      // Check if it's a network error
+      if (error.message?.includes("chainId") || networkError) {
+        toast.error("Network error: Please ensure you're on Sepolia testnet");
+      } else if (error.message?.includes("Could not decode")) {
+        toast.error("Contract data error: ABI may not match deployed contract");
+      } else {
+        toast.error("Failed to fetch campaigns: " + (error.message || error.toString()));
+      }
+      
+      setCampaigns([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [contract, readContract, networkError]);
+
+  // Fetch on contract ready
+  useEffect(() => {
+    if (contract || readContract) {
+      console.log("📋 Contract instance ready, fetching campaigns...");
+      fetchCampaigns();
+    }
+  }, [contract, readContract, fetchCampaigns]);
+
+  // Create campaign
+  const createCampaign = async (title, goalETH, durationDays) => {
+    if (!contract) throw new Error("Contract not initialized");
+    const goalWei = ethers.parseEther(goalETH);
+    const durationSeconds = Math.floor(durationDays * 24 * 60 * 60);
+    console.log(`📝 Creating campaign: "${title}"`);
+    const tx = await contract.createCampaign(title, goalWei, durationSeconds);
+    await toast.promise(tx.wait(), {
+      loading: "Creating campaign...",
+      success: "Campaign created!",
+      error: "Failed to create campaign",
+    });
+    console.log("✅ Campaign created, refreshing list...");
+    // Force immediate refresh with a small delay to ensure blockchain has updated
+    setTimeout(() => fetchCampaigns(), 1000);
+    return tx;
+  };
+
+  const contribute = async (campaignId, amountETH) => {
+    if (!contract) throw new Error("Contract not initialized");
+    const amountWei = ethers.parseEther(amountETH);
+    console.log(`💰 Contributing ${amountETH} ETH to campaign ${campaignId}`);
+    const tx = await contract.contribute(campaignId, { value: amountWei });
+    await toast.promise(tx.wait(), {
+      loading: "Processing contribution...",
+      success: "Contribution successful!",
+      error: "Failed to contribute",
+    });
+    console.log("✅ Contribution processed, refreshing campaigns...");
+    setTimeout(() => fetchCampaigns(), 1000);
+    return tx;
+  };
+
+  const claimFunds = async (campaignId) => {
+    if (!contract) throw new Error("Contract not initialized");
+    console.log(`🎯 Claiming funds from campaign ${campaignId}`);
+    const tx = await contract.claimFunds(campaignId);
+    await toast.promise(tx.wait(), {
+      loading: "Claiming funds...",
+      success: "Funds claimed!",
+      error: "Failed to claim",
+    });
+    console.log("✅ Funds claimed, refreshing campaigns...");
+    setTimeout(() => fetchCampaigns(), 1000);
+    return tx;
+  };
+
+  const refund = async (campaignId) => {
+    if (!contract) throw new Error("Contract not initialized");
+    const tx = await contract.refund(campaignId);
+    await toast.promise(tx.wait(), {
+      loading: "Processing refund...",
+      success: "Refund successful!",
+      error: "Failed to refund",
+    });
+    await fetchCampaigns();
+    return tx;
+  };
+
+  const getUserContribution = async (campaignId, userAddress) => {
+    if (!contract) return 0n;
+    return await contract.getContribution(campaignId, userAddress);
+  };
+
+  // Event listeners
+  useEffect(() => {
+    if (!contract) return;
+    const handleCampaignCreated = () => fetchCampaigns();
+    const handleContribution = () => fetchCampaigns();
+    contract.on("CampaignCreated", handleCampaignCreated);
+    contract.on("ContributionMade", handleContribution);
+    contract.on("FundsClaimed", handleCampaignCreated);
+    contract.on("RefundIssued", handleCampaignCreated);
+    return () => {
+      contract.off("CampaignCreated", handleCampaignCreated);
+      contract.off("ContributionMade", handleContribution);
+      contract.off("FundsClaimed", handleCampaignCreated);
+      contract.off("RefundIssued", handleCampaignCreated);
+    };
+  }, [contract, fetchCampaigns]);
+
+    const disconnectWallet = useCallback(() => {
+    setAccount(null);
+    setSigner(null);
+    setContract(null);
+    setReadContract(null);
+    setNetworkError(null);
+    localStorage.removeItem("walletConnected");
+    toast.success("Wallet disconnected");
+  }, []);
+
+  return {
+    provider,
+    account,
+    isConnecting,
+    connectWallet,
+    disconnectWallet, 
+    contract,
+    readContract,
+    campaigns,
+    loading,
+    networkError,
+    fetchCampaigns,
+    createCampaign,
+    contribute,
+    claimFunds,
+    refund,
+    getUserContribution,
+  };
+};
