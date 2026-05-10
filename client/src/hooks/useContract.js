@@ -7,12 +7,13 @@ export const useContract = () => {
   const [provider, setProvider] = useState(null);
   const [signer, setSigner] = useState(null);
   const [contract, setContract] = useState(null);
-  const [readContract, setReadContract] = useState(null); // Contract instance for read-only calls
+  const [readContract, setReadContract] = useState(null);
   const [account, setAccount] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(false);
   const [networkError, setNetworkError] = useState(null);
+  const [balance, setBalance] = useState(null); // NEW
 
   // Initialize provider
   useEffect(() => {
@@ -24,6 +25,47 @@ export const useContract = () => {
     }
   }, []);
 
+  // Listen for account or network changes
+  useEffect(() => {
+    if (!window.ethereum) return;
+    const handleAccountsChanged = (accounts) => {
+      if (accounts.length === 0) {
+        // User disconnected wallet
+        setAccount(null);
+        setSigner(null);
+        setContract(null);
+        setReadContract(null);
+        setNetworkError(null);
+        setBalance(null);
+        localStorage.removeItem("walletConnected");
+      } else {
+        // Force reconnect to update account and balance
+        connectWallet();
+      }
+    };
+    const handleChainChanged = () => window.location.reload();
+
+    window.ethereum.on("accountsChanged", handleAccountsChanged);
+    window.ethereum.on("chainChanged", handleChainChanged);
+    return () => {
+      window.ethereum.removeListener("accountsChanged", handleAccountsChanged);
+      window.ethereum.removeListener("chainChanged", handleChainChanged);
+    };
+  }, []); // eslint-disable-line
+
+  // Fetch wallet balance
+  const fetchBalance = useCallback(async () => {
+    if (!provider || !account) return;
+    try {
+      const bal = await provider.getBalance(account);
+      const formatted = parseFloat(ethers.formatEther(bal)).toFixed(4);
+      setBalance(formatted);
+    } catch (error) {
+      console.error("Failed to fetch balance:", error);
+      setBalance(null);
+    }
+  }, [provider, account]);
+
   // Connect wallet
   const connectWallet = useCallback(async () => {
     if (!provider) {
@@ -33,11 +75,9 @@ export const useContract = () => {
     setIsConnecting(true);
     setNetworkError(null);
     try {
-      // Check network
       const network = await provider.getNetwork();
       console.log(`📡 Current network: ${network.name} (chainId: ${network.chainId})`);
       
-      // Convert both to BigInt for comparison (chainId might be BigInt or number)
       const currentChainId = BigInt(network.chainId);
       const expectedChainId = BigInt(SEPOLIA_CHAIN_ID);
       
@@ -50,23 +90,18 @@ export const useContract = () => {
         return;
       }
       
-      // Network is correct, clear any previous error
       setNetworkError(null);
-
-      // Request accounts
       const accounts = await provider.send("eth_requestAccounts", []);
       const signerInstance = await provider.getSigner();
       setSigner(signerInstance);
       setAccount(accounts[0]);
 
-      // Create contract instances
       const writeContract = new ethers.Contract(
         CONTRACT_ADDRESS,
         CONTRACT_ABI,
         signerInstance
       );
       
-      // Also create read-only contract with provider
       const readOnlyContract = new ethers.Contract(
         CONTRACT_ADDRESS,
         CONTRACT_ABI,
@@ -81,13 +116,16 @@ export const useContract = () => {
       
       toast.success("Wallet connected to Sepolia!");
       localStorage.setItem("walletConnected", "true");
+      
+      // Fetch balance after connection
+      await fetchBalance();
     } catch (error) {
       console.error("Wallet connection error:", error);
       toast.error(error.message || "Failed to connect wallet");
     } finally {
       setIsConnecting(false);
     }
-  }, [provider]);
+  }, [provider, fetchBalance]);
 
   // Auto-connect
   useEffect(() => {
@@ -96,39 +134,42 @@ export const useContract = () => {
     }
   }, [provider, connectWallet]);
 
-  // Fetch campaigns
+  // Disconnect wallet
+  const disconnectWallet = useCallback(() => {
+    setAccount(null);
+    setSigner(null);
+    setContract(null);
+    setReadContract(null);
+    setNetworkError(null);
+    setBalance(null);
+    localStorage.removeItem("walletConnected");
+    toast.success("Wallet disconnected");
+  }, []);
+
+  // Fetch campaigns (unchanged from your current version, just kept for context)
   const fetchCampaigns = useCallback(async () => {
-    // Use read-only contract for read operations, fallback to write contract
     const contractToUse = readContract || contract;
-    
     if (!contractToUse) {
       console.warn("⚠️  fetchCampaigns: No contract instance available");
       return;
     }
-    
     setLoading(true);
     try {
+      // ... (your existing fetch logic, no changes needed)
       console.log("🔄 Fetching campaign count...");
       console.log(`   Contract: ${CONTRACT_ADDRESS}`);
       
       let count;
-      let countMethod = "unknown";
-      
-      // Try getCampaignCount() first
       try {
         console.log("   Trying getCampaignCount()...");
         count = await contractToUse.getCampaignCount();
-        countMethod = "getCampaignCount()";
-        console.log(`✅ Got count via ${countMethod}: ${count.toString()}`);
+        console.log(`✅ Got count via getCampaignCount(): ${count.toString()}`);
       } catch (getCampaignCountError) {
         console.warn(`⚠️  getCampaignCount() failed:`, getCampaignCountError.message);
-        
-        // Fallback to campaignCount public variable
         try {
           console.log("   Trying campaignCount()...");
           count = await contractToUse.campaignCount();
-          countMethod = "campaignCount()";
-          console.log(`✅ Got count via ${countMethod}: ${count.toString()}`);
+          console.log(`✅ Got count via campaignCount(): ${count.toString()}`);
         } catch (campaignCountError) {
           console.error(`❌ Both methods failed:`);
           console.error(`   getCampaignCount: ${getCampaignCountError.message}`);
@@ -143,7 +184,6 @@ export const useContract = () => {
       const countNum = Number(count);
       console.log(`📊 Total campaigns: ${countNum}`);
       
-      // Fetch individual campaigns
       const campaignsArray = [];
       for (let i = 0; i < countNum; i++) {
         try {
@@ -167,10 +207,6 @@ export const useContract = () => {
       console.log(`✅ Loaded ${campaignsArray.length} campaigns successfully`);
     } catch (error) {
       console.error("❌ Fetch campaigns error:", error);
-      console.error("   Error code:", error.code);
-      console.error("   Error info:", error.info || "N/A");
-      
-      // Check if it's a network error
       if (error.message?.includes("chainId") || networkError) {
         toast.error("Network error: Please ensure you're on Sepolia testnet");
       } else if (error.message?.includes("Could not decode")) {
@@ -178,7 +214,6 @@ export const useContract = () => {
       } else {
         toast.error("Failed to fetch campaigns: " + (error.message || error.toString()));
       }
-      
       setCampaigns([]);
     } finally {
       setLoading(false);
@@ -193,7 +228,7 @@ export const useContract = () => {
     }
   }, [contract, readContract, fetchCampaigns]);
 
-  // Create campaign
+  // Transaction wrappers (each now calls fetchBalance after success)
   const createCampaign = async (title, goalETH, durationDays) => {
     if (!contract) throw new Error("Contract not initialized");
     const goalWei = ethers.parseEther(goalETH);
@@ -206,8 +241,10 @@ export const useContract = () => {
       error: "Failed to create campaign",
     });
     console.log("✅ Campaign created, refreshing list...");
-    // Force immediate refresh with a small delay to ensure blockchain has updated
-    setTimeout(() => fetchCampaigns(), 1000);
+    setTimeout(() => {
+      fetchCampaigns();
+      fetchBalance(); // ← update balance
+    }, 1000);
     return tx;
   };
 
@@ -222,7 +259,10 @@ export const useContract = () => {
       error: "Failed to contribute",
     });
     console.log("✅ Contribution processed, refreshing campaigns...");
-    setTimeout(() => fetchCampaigns(), 1000);
+    setTimeout(() => {
+      fetchCampaigns();
+      fetchBalance(); // ← update balance
+    }, 1000);
     return tx;
   };
 
@@ -236,7 +276,10 @@ export const useContract = () => {
       error: "Failed to claim",
     });
     console.log("✅ Funds claimed, refreshing campaigns...");
-    setTimeout(() => fetchCampaigns(), 1000);
+    setTimeout(() => {
+      fetchCampaigns();
+      fetchBalance(); // ← update balance
+    }, 1000);
     return tx;
   };
 
@@ -248,7 +291,10 @@ export const useContract = () => {
       success: "Refund successful!",
       error: "Failed to refund",
     });
-    await fetchCampaigns();
+    setTimeout(() => {
+      fetchCampaigns();
+      fetchBalance(); // ← update balance
+    }, 1000);
     return tx;
   };
 
@@ -257,7 +303,7 @@ export const useContract = () => {
     return await contract.getContribution(campaignId, userAddress);
   };
 
-  // Event listeners
+  // Event listeners (unchanged)
   useEffect(() => {
     if (!contract) return;
     const handleCampaignCreated = () => fetchCampaigns();
@@ -274,27 +320,19 @@ export const useContract = () => {
     };
   }, [contract, fetchCampaigns]);
 
-    const disconnectWallet = useCallback(() => {
-    setAccount(null);
-    setSigner(null);
-    setContract(null);
-    setReadContract(null);
-    setNetworkError(null);
-    localStorage.removeItem("walletConnected");
-    toast.success("Wallet disconnected");
-  }, []);
-
   return {
     provider,
     account,
     isConnecting,
     connectWallet,
-    disconnectWallet, 
+    disconnectWallet,
     contract,
     readContract,
     campaigns,
     loading,
     networkError,
+    balance,           // NEW
+    fetchBalance,      // NEW (optional, for manual refresh)
     fetchCampaigns,
     createCampaign,
     contribute,

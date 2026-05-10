@@ -46,6 +46,7 @@ function App() {
     campaigns,
     loading,
     networkError,
+    balance, 
     fetchCampaigns,
     createCampaign,
     contribute,
@@ -107,6 +108,7 @@ function App() {
           connectWallet={connectWallet}
           disconnectWallet={disconnectWallet}
           networkError={networkError}
+          balance={balance}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           sidebarOpen={sidebarOpen}
         />
