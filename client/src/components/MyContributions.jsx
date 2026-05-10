@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { ethers } from "ethers";
-import { Coins, Heart, BarChart3 } from "lucide-react";
+import { Coins, Heart, BarChart3, ExternalLink } from "lucide-react"; // ← added ExternalLink
 
 const MyContributions = ({ contract, account, campaigns }) => {
   const [contributions, setContributions] = useState([]);
@@ -132,6 +132,20 @@ const MyContributions = ({ contract, account, campaigns }) => {
                       </span>
                     </div>
                   </div>
+
+                  {/* Etherscan link */}
+                  <button
+                    onClick={() =>
+                      window.open(
+                        `https://sepolia.etherscan.io/address/${account}`,
+                        "_blank"
+                      )
+                    }
+                    className="p-1 rounded-md text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                    title="View your transactions on Etherscan"
+                  >
+                    <ExternalLink size={16} />
+                  </button>
                 </div>
               </div>
             );
