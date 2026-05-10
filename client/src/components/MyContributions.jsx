@@ -88,6 +88,23 @@ const MyContributions = ({ contract, account, campaigns }) => {
             const goal = BigInt(campaign.goal || "0");
             const raised = BigInt(campaign.totalRaised || "0");
             const progress = goal > 0n ? Number((raised * 100n) / goal) : 0;
+            const deadlinePassed = Date.now() / 1000 >= campaign.deadline;
+            const isActive = Date.now() / 1000 < campaign.deadline && !campaign.claimed;
+            const goalMet = raised >= goal;
+            const statusLabel = campaign.claimed
+              ? "Funded"
+              : isActive
+              ? "Active"
+              : deadlinePassed && goalMet
+              ? "Success"
+              : "Failed";
+            const statusClasses = campaign.claimed
+              ? "bg-teal-50 dark:bg-teal-900 text-teal-700 dark:text-teal-200"
+              : isActive
+              ? "bg-amber-50 dark:bg-amber-900 text-amber-700 dark:text-amber-200"
+              : deadlinePassed && goalMet
+              ? "bg-teal-50 dark:bg-teal-900 text-teal-700 dark:text-teal-200"
+              : "bg-rose-50 dark:bg-rose-900 text-rose-700 dark:text-rose-200";
             return (
               <div
                 key={campaign.id}
@@ -116,19 +133,9 @@ const MyContributions = ({ contract, account, campaigns }) => {
                         </span>
                       </span>
                       <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          campaign.claimed
-                            ? "bg-teal-50 dark:bg-teal-900 text-teal-700 dark:text-teal-200"
-                            : Date.now() / 1000 < campaign.deadline
-                            ? "bg-amber-50 dark:bg-amber-900 text-amber-700 dark:text-amber-200"
-                            : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
-                        }`}
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${statusClasses}`}
                       >
-                        {campaign.claimed
-                          ? "Funded"
-                          : Date.now() / 1000 < campaign.deadline
-                          ? "Active"
-                          : "Ended"}
+                        {statusLabel}
                       </span>
                     </div>
                   </div>

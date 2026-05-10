@@ -113,7 +113,7 @@ const CampaignCard = ({
 
       {/* Actions */}
       <div className="mt-auto flex flex-wrap gap-2">
-        {isActive && !isCreator && (
+        {isActive && !isCreator && !goalMet && (
           <>
             {!showFundInput ? (
               <button
