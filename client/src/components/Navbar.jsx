@@ -1,7 +1,19 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useContext } from "react";
 import { Link } from "react-router-dom";
-import { Wallet, Menu, X, LogOut, ShieldAlert, ChevronDown, Copy, ExternalLink } from "lucide-react";
+import {
+  Wallet,
+  Menu,
+  X,
+  LogOut,
+  ShieldAlert,
+  ChevronDown,
+  Copy,
+  ExternalLink,
+  Sun,
+  Moon,
+} from "lucide-react";
 import toast from "react-hot-toast";
+import { useTheme } from "../contexts/ThemeContext"; // adjust the path if needed
 
 const Navbar = ({
   account,
@@ -15,6 +27,9 @@ const Navbar = ({
 }) => {
   const [popupOpen, setPopupOpen] = useState(false);
   const popupRef = useRef(null);
+
+  // Theme
+  const { theme, toggleTheme } = useTheme();
 
   // Close popup when clicking outside
   useEffect(() => {
@@ -72,8 +87,17 @@ const Navbar = ({
           </Link>
         </div>
 
-        {/* Right Section: Wallet & Actions */}
+        {/* Right Section: Wallet, Theme Toggle, etc. */}
         <div className="flex items-center gap-3">
+          {/* Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition dark:text-slate-300 dark:hover:bg-slate-800"
+            aria-label="Toggle theme"
+          >
+            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+
           {!account ? (
             <button
               onClick={connectWallet}
