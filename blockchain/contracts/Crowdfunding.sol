@@ -17,6 +17,7 @@ contract Crowdfunding {
         uint256 deadline;          // Unix timestamp when campaign ends
         uint256 totalRaised;       // Total ETH raised so far
         bool claimed;              // Whether funds have been claimed by creator
+        bool cancelled;            // Whether campaign was cancelled by creator
     }
     
     // ============ STATE VARIABLES ============
@@ -62,6 +63,11 @@ contract Crowdfunding {
         uint256 amount
     );
     
+    /// @dev Emitted when a campaign is cancelled.
+    event CampaignCancelled(
+        uint256 indexed campaignId
+    );
+    
     // ============ MODIFIERS ============
     
     /// @dev Ensures a campaign exists.
@@ -95,7 +101,8 @@ contract Crowdfunding {
             goal: _goal,
             deadline: deadline,
             totalRaised: 0,
-            claimed: false
+            claimed: false,
+            cancelled: false
         });
         
         emit CampaignCreated(
@@ -121,6 +128,7 @@ contract Crowdfunding {
         Campaign storage campaign = campaigns[_campaignId];
         
         require(block.timestamp < campaign.deadline, "Campaign deadline has passed");
+        require(!campaign.cancelled, "Campaign has been cancelled");
         require(msg.value > 0, "Contribution must be greater than zero");
         require(!campaign.claimed, "Campaign already claimed");
         require(campaign.totalRaised < campaign.goal, "Campaign goal already reached");
@@ -146,6 +154,7 @@ contract Crowdfunding {
         
         require(msg.sender == campaign.creator, "Only creator can claim funds");
         require(block.timestamp >= campaign.deadline, "Campaign deadline not yet reached");
+        require(!campaign.cancelled, "Campaign has been cancelled");
         require(campaign.totalRaised >= campaign.goal, "Goal not reached");
         require(!campaign.claimed, "Funds already claimed");
         
@@ -160,6 +169,26 @@ contract Crowdfunding {
         emit FundsClaimed(_campaignId, campaign.creator, amount);
     }
     
+    /**
+     * @dev Cancels an unfunded campaign before the deadline.
+     * @param _campaignId ID of the campaign.
+     */
+    function cancelCampaign(uint256 _campaignId)
+        external
+        campaignExists(_campaignId)
+    {
+        Campaign storage campaign = campaigns[_campaignId];
+
+        require(msg.sender == campaign.creator, "Only creator can cancel campaign");
+        require(block.timestamp < campaign.deadline, "Campaign deadline has passed");
+        require(campaign.totalRaised == 0, "Cannot cancel campaign with contributions");
+        require(!campaign.cancelled, "Campaign already cancelled");
+        require(!campaign.claimed, "Campaign already claimed");
+
+        campaign.cancelled = true;
+        emit CampaignCancelled(_campaignId);
+    }
+
     /**
      * @dev Allows a contributor to claim a refund if campaign failed (deadline passed, goal not met).
      * @param _campaignId ID of the campaign.

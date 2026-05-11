@@ -9,6 +9,7 @@ const CampaignList = ({
   onFund,
   onClaim,
   onRefund,
+  onCancel,
   getUserContribution,
 }) => {
   const [searchTerm, setSearchTerm] = React.useState("");
@@ -93,6 +94,7 @@ const CampaignList = ({
               onFund={onFund}
               onClaim={onClaim}
               onRefund={onRefund}
+              onCancel={onCancel}
               userContribution={getUserContribution?.(campaign.id, account) || 0n}
             />
           ))}

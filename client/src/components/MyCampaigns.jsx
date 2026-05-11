@@ -3,7 +3,7 @@ import CampaignCard from "./CampaignCard";
 import { ethers } from "ethers";
 import { Flag, TrendingUp, Activity } from "lucide-react";
 
-const MyCampaigns = ({ campaigns, account, onClaim, loading }) => {
+const MyCampaigns = ({ campaigns, account, onClaim, onCancel, loading }) => {
   const myCampaigns = campaigns.filter(
     (c) => c.creator.toLowerCase() === account?.toLowerCase()
   );
@@ -67,6 +67,7 @@ const MyCampaigns = ({ campaigns, account, onClaim, loading }) => {
               campaign={campaign}
               account={account}
               onClaim={onClaim}
+              onCancel={onCancel}
             />
           ))}
         </div>

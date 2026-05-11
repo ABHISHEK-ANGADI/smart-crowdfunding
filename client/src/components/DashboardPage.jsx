@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { ethers } from "ethers";
 import { PlusCircle, Search } from "lucide-react";
 
@@ -72,20 +73,20 @@ const DashboardPage = ({ account, campaigns, contributionsCount }) => {
           Quick Actions
         </h2>
         <div className="flex flex-wrap gap-3">
-          <a
-            href="/campaigns"
+          <Link
+            to="/campaigns"
             className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition text-sm inline-flex items-center gap-2"
           >
             <Search size={16} />
             Browse Campaigns
-          </a>
-          <a
-            href="/create"
+          </Link>
+          <Link
+            to="/create"
             className="px-4 py-2 border border-slate-900 dark:border-slate-600 text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition text-sm inline-flex items-center gap-2"
           >
             <PlusCircle size={16} />
             Create Campaign
-          </a>
+          </Link>
         </div>
       </div>
     </div>

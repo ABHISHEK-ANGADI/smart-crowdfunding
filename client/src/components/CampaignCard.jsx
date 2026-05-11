@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { ethers } from "ethers";
-import { X, TrendingUp, Clock, Target, User, CheckCircle2, AlertCircle } from "lucide-react";
+import { X, Ban, TrendingUp, Clock, Target, User, CheckCircle2, AlertCircle } from "lucide-react";
 
 const CampaignCard = ({
   campaign,
@@ -8,6 +8,7 @@ const CampaignCard = ({
   onFund,
   onClaim,
   onRefund,
+  onCancel,
   userContribution,
 }) => {
   const [fundAmount, setFundAmount] = useState("");
@@ -28,6 +29,11 @@ const CampaignCard = ({
     deadlinePassed &&
     !goalMet &&
     userContribution > 0n;
+  const canCancel =
+    isCreator &&
+    isActive &&
+    totalRaised === 0n &&
+    !campaign.cancelled;
 
   const handleFund = () => {
     if (!fundAmount || parseFloat(fundAmount) <= 0) return;
@@ -165,6 +171,18 @@ const CampaignCard = ({
             className="flex-1 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition text-sm"
           >
             Refund
+          </button>
+        )}
+
+        {canCancel && onCancel && (
+          <button
+            type="button"
+            title="Cancel Campaign"
+            aria-label="Cancel Campaign"
+            onClick={() => onCancel(campaign.id)}
+            className="p-2 rounded-lg bg-transparent text-amber-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition text-sm inline-flex items-center justify-center"
+          >
+            <Ban size={18} />
           </button>
         )}
 

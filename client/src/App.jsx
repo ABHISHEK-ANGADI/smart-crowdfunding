@@ -52,6 +52,7 @@ function App() {
     contribute,
     claimFunds,
     refund,
+    cancelCampaign,
     getUserContribution,
   } = useContract();
 
@@ -82,6 +83,14 @@ function App() {
     };
     fetchContributionsCount();
   }, [contract, account, campaigns]);
+
+  function LoadingSpinner() {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500" />
+      </div>
+    );
+  }
 
   return (
     <Router>
@@ -142,6 +151,8 @@ function App() {
                     contributionsCount={contributionsCount}
                   />
                 </AuthenticatedLayout>
+              ) : isConnecting ? (
+                <LoadingSpinner />
               ) : (
                 <Navigate to="/" replace />
               )
@@ -171,10 +182,13 @@ function App() {
                       onFund={contribute}
                       onClaim={claimFunds}
                       onRefund={refund}
+                      onCancel={cancelCampaign}
                       getUserContribution={getUserContribution}
                     />
                   </div>
                 </AuthenticatedLayout>
+              ) : isConnecting ? (
+                <LoadingSpinner />
               ) : (
                 <Navigate to="/" replace />
               )
@@ -200,6 +214,8 @@ function App() {
                     <CreateCampaign onCreate={createCampaign} isCreating={loading} />
                   </div>
                 </AuthenticatedLayout>
+              ) : isConnecting ? (
+                <LoadingSpinner />
               ) : (
                 <Navigate to="/" replace />
               )
@@ -219,9 +235,12 @@ function App() {
                     campaigns={campaigns}
                     account={account}
                     onClaim={claimFunds}
+                    onCancel={cancelCampaign}
                     loading={loading}
                   />
                 </AuthenticatedLayout>
+              ) : isConnecting ? (
+                <LoadingSpinner />
               ) : (
                 <Navigate to="/" replace />
               )
@@ -243,6 +262,8 @@ function App() {
                     campaigns={campaigns}
                   />
                 </AuthenticatedLayout>
+              ) : isConnecting ? (
+                <LoadingSpinner />
               ) : (
                 <Navigate to="/" replace />
               )
@@ -253,7 +274,7 @@ function App() {
           <Route
             path="*"
             element={
-              account ? <Navigate to="/dashboard" replace /> : <Navigate to="/" replace />
+              account ? <Navigate to="/dashboard" replace /> : isConnecting ? <LoadingSpinner /> : <Navigate to="/" replace />
             }
           />
         </Routes>

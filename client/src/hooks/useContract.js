@@ -188,6 +188,10 @@ export const useContract = () => {
       for (let i = 0; i < countNum; i++) {
         try {
           const campaign = await contractToUse.campaigns(i);
+          if (campaign.cancelled) {
+            console.log(`   ⛔ Skipping cancelled campaign ${i}`);
+            continue;
+          }
           campaignsArray.push({
             id: i,
             creator: campaign.creator,
@@ -196,6 +200,7 @@ export const useContract = () => {
             deadline: Number(campaign.deadline),
             totalRaised: campaign.totalRaised.toString(),
             claimed: campaign.claimed,
+            cancelled: campaign.cancelled,
           });
           console.log(`   ✓ Campaign ${i} loaded`);
         } catch (campaignError) {
@@ -298,6 +303,23 @@ export const useContract = () => {
     return tx;
   };
 
+  const cancelCampaign = async (campaignId) => {
+    if (!contract) throw new Error("Contract not initialized");
+    console.log(`🚫 Cancelling campaign ${campaignId}`);
+    const tx = await contract.cancelCampaign(campaignId);
+    await toast.promise(tx.wait(), {
+      loading: "Cancelling campaign...",
+      success: "Campaign cancelled!",
+      error: "Failed to cancel campaign",
+    });
+    console.log("✅ Campaign cancelled, refreshing campaigns...");
+    setTimeout(() => {
+      fetchCampaigns();
+      fetchBalance();
+    }, 1000);
+    return tx;
+  };
+
   const getUserContribution = async (campaignId, userAddress) => {
     if (!contract) return 0n;
     return await contract.getContribution(campaignId, userAddress);
@@ -338,6 +360,7 @@ export const useContract = () => {
     contribute,
     claimFunds,
     refund,
+    cancelCampaign,
     getUserContribution,
   };
 };

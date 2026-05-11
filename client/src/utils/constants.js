@@ -1,6 +1,6 @@
 import CrowdfundingJSON from "../contracts/Crowdfunding.json";
 
-export const CONTRACT_ADDRESS = "0x64c3E2b3C64743e682eB073Fb95F54d92a6BfC45";
+export const CONTRACT_ADDRESS = "0xD7FbC9b5Be1077471628f9AD05D32cf850deE944";
 export const SEPOLIA_CHAIN_ID = 11155111;
 
 // Handle both direct array and wrapped ABI formats
