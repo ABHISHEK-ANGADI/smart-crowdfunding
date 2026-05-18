@@ -201,6 +201,7 @@ export const useContract = () => {
             totalRaised: campaign.totalRaised.toString(),
             claimed: campaign.claimed,
             cancelled: campaign.cancelled,
+            imageCID: campaign.imageCID || "",
           });
           console.log(`   ✓ Campaign ${i} loaded`);
         } catch (campaignError) {
@@ -234,12 +235,12 @@ export const useContract = () => {
   }, [contract, readContract, fetchCampaigns]);
 
   // Transaction wrappers (each now calls fetchBalance after success)
-  const createCampaign = async (title, goalETH, durationDays) => {
+  const createCampaign = async (title, goalETH, durationDays, imageCID = "") => {
     if (!contract) throw new Error("Contract not initialized");
     const goalWei = ethers.parseEther(goalETH);
     const durationSeconds = Math.floor(durationDays * 24 * 60 * 60);
-    console.log(`📝 Creating campaign: "${title}"`);
-    const tx = await contract.createCampaign(title, goalWei, durationSeconds);
+    console.log(`📝 Creating campaign: "${title}" with image CID: ${imageCID || "none"}`);
+    const tx = await contract.createCampaign(title, goalWei, durationSeconds, imageCID);
     await toast.promise(tx.wait(), {
       loading: "Creating campaign...",
       success: "Campaign created!",

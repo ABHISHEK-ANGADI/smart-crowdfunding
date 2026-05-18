@@ -1,9 +1,12 @@
 import React from "react";
 import CampaignCard from "./CampaignCard";
+import CampaignModal from "./CampaignModal";
 import { ethers } from "ethers";
 import { Flag, TrendingUp, Activity } from "lucide-react";
 
 const MyCampaigns = ({ campaigns, account, onClaim, onCancel, loading }) => {
+  const [selectedCampaign, setSelectedCampaign] = React.useState(null);
+
   const myCampaigns = campaigns.filter(
     (c) => c.creator.toLowerCase() === account?.toLowerCase()
   );
@@ -68,9 +71,21 @@ const MyCampaigns = ({ campaigns, account, onClaim, onCancel, loading }) => {
               account={account}
               onClaim={onClaim}
               onCancel={onCancel}
+              onViewDetails={setSelectedCampaign}
             />
           ))}
         </div>
+      )}
+
+      {selectedCampaign && (
+        <CampaignModal
+          campaign={selectedCampaign}
+          account={account}
+          onClose={() => setSelectedCampaign(null)}
+          onClaim={onClaim}
+          onCancel={onCancel}
+          userContribution={0n}
+        />
       )}
     </div>
   );

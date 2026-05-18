@@ -1,5 +1,6 @@
 import React from "react";
 import CampaignCard from "./CampaignCard";
+import CampaignModal from "./CampaignModal";
 import { Search } from "lucide-react";
 
 const CampaignList = ({
@@ -14,6 +15,7 @@ const CampaignList = ({
 }) => {
   const [searchTerm, setSearchTerm] = React.useState("");
   const [filter, setFilter] = React.useState("all"); // all, active, my
+  const [selectedCampaign, setSelectedCampaign] = React.useState(null);
 
   const filteredCampaigns = campaigns.filter((c) => {
     const matchesSearch = c.title
@@ -95,10 +97,24 @@ const CampaignList = ({
               onClaim={onClaim}
               onRefund={onRefund}
               onCancel={onCancel}
+              onViewDetails={setSelectedCampaign}
               userContribution={getUserContribution?.(campaign.id, account) || 0n}
             />
           ))}
         </div>
+      )}
+
+      {selectedCampaign && (
+        <CampaignModal
+          campaign={selectedCampaign}
+          account={account}
+          onClose={() => setSelectedCampaign(null)}
+          onFund={onFund}
+          onClaim={onClaim}
+          onRefund={onRefund}
+          onCancel={onCancel}
+          userContribution={getUserContribution?.(selectedCampaign.id, account) || 0n}
+        />
       )}
     </div>
   );
